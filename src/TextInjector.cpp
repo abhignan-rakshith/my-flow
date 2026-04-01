@@ -2,6 +2,11 @@
 #include <QProcess>
 #include <QStandardPaths>
 
+// =============================================================================
+// Linux: ydotool
+// =============================================================================
+#ifdef Q_OS_LINUX
+
 TextInjector::TextInjector(QObject *parent)
     : QObject(parent)
 {
@@ -42,3 +47,99 @@ void TextInjector::type(const QString &text)
 
     proc->start();
 }
+
+#endif // Q_OS_LINUX
+
+// =============================================================================
+// Windows: SendInput
+// =============================================================================
+#ifdef Q_OS_WIN
+
+#include <windows.h>
+
+TextInjector::TextInjector(QObject *parent)
+    : QObject(parent)
+{
+    m_available = true;
+}
+
+bool TextInjector::isAvailable() const
+{
+    return m_available;
+}
+
+void TextInjector::type(const QString &text)
+{
+    // Use SendInput to type Unicode characters
+    std::vector<INPUT> inputs;
+    inputs.reserve(text.length() * 2);
+
+    for (const QChar &ch : text) {
+        INPUT down = {};
+        down.type = INPUT_KEYBOARD;
+        down.ki.wScan = ch.unicode();
+        down.ki.dwFlags = KEYEVENTF_UNICODE;
+        inputs.push_back(down);
+
+        INPUT up = {};
+        up.type = INPUT_KEYBOARD;
+        up.ki.wScan = ch.unicode();
+        up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+        inputs.push_back(up);
+    }
+
+    UINT sent = SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+    if (sent != inputs.size()) {
+        emit injectionError("SendInput failed: only sent " + QString::number(sent) +
+                            " of " + QString::number(inputs.size()) + " events");
+    }
+}
+
+#endif // Q_OS_WIN
+
+// =============================================================================
+// macOS: CGEventPost
+// =============================================================================
+#ifdef Q_OS_MACOS
+
+#include <ApplicationServices/ApplicationServices.h>
+
+TextInjector::TextInjector(QObject *parent)
+    : QObject(parent)
+{
+    m_available = true;
+}
+
+bool TextInjector::isAvailable() const
+{
+    return m_available;
+}
+
+void TextInjector::type(const QString &text)
+{
+    // Use CGEventKeyboardSetUnicodeString to type text
+    // Process in chunks of 20 chars (CGEvent limit)
+    static const int kChunkSize = 20;
+
+    for (int i = 0; i < text.length(); i += kChunkSize) {
+        QString chunk = text.mid(i, kChunkSize);
+        std::vector<UniChar> uniChars(chunk.length());
+        for (int j = 0; j < chunk.length(); ++j) {
+            uniChars[j] = chunk[j].unicode();
+        }
+
+        CGEventRef keyDown = CGEventCreateKeyboardEvent(nullptr, 0, true);
+        CGEventRef keyUp = CGEventCreateKeyboardEvent(nullptr, 0, false);
+
+        CGEventKeyboardSetUnicodeString(keyDown, uniChars.size(), uniChars.data());
+        CGEventKeyboardSetUnicodeString(keyUp, uniChars.size(), uniChars.data());
+
+        CGEventPost(kCGHIDEventTap, keyDown);
+        CGEventPost(kCGHIDEventTap, keyUp);
+
+        CFRelease(keyDown);
+        CFRelease(keyUp);
+    }
+}
+
+#endif // Q_OS_MACOS

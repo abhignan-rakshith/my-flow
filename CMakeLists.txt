@@ -6,7 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Multimedia Network DBus)
+set(QT_COMPONENTS Core Gui Widgets Multimedia Network)
+if(LINUX)
+    list(APPEND QT_COMPONENTS DBus)
+endif()
+
+find_package(Qt6 REQUIRED COMPONENTS ${QT_COMPONENTS})
 
 qt_add_executable(wispr-flow
     src/main.cpp
@@ -31,5 +36,15 @@ target_link_libraries(wispr-flow PRIVATE
     Qt6::Widgets
     Qt6::Multimedia
     Qt6::Network
-    Qt6::DBus
 )
+
+if(LINUX)
+    target_link_libraries(wispr-flow PRIVATE Qt6::DBus)
+endif()
+
+if(APPLE)
+    target_link_libraries(wispr-flow PRIVATE
+        "-framework Carbon"
+        "-framework ApplicationServices"
+    )
+endif()
