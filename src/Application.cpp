@@ -4,7 +4,9 @@
 #include "SettingsDialog.h"
 #include <QApplication>
 #include <QFile>
+#include <QDir>
 #include <QDateTime>
+#include <QStandardPaths>
 
 Application::Application(QObject *parent)
     : QObject(parent)
@@ -76,9 +78,12 @@ void Application::onRecordingFinished(const QByteArray &pcmData)
 
     QByteArray wavData = AudioEncoder::toWav(pcmData);
 
-    // Save recording
-    QFile wav("/tmp/wispr-flow-last.wav");
+    // Save recording to app data dir with restrictive permissions
+    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QDir().mkpath(dataDir);
+    QFile wav(dataDir + "/last-recording.wav");
     if (wav.open(QIODevice::WriteOnly)) {
+        wav.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
         wav.write(wavData);
         wav.close();
     }
@@ -88,9 +93,11 @@ void Application::onRecordingFinished(const QByteArray &pcmData)
 
 void Application::onTranscriptionReady(const QString &text)
 {
-    // Append transcript to log
-    QFile log("/tmp/wispr-flow-transcripts.log");
+    // Append transcript to log in app data dir
+    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QFile log(dataDir + "/transcripts.log");
     if (log.open(QIODevice::Append | QIODevice::Text)) {
+        log.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
         log.write(QDateTime::currentDateTime().toString("[yyyy-MM-dd hh:mm:ss] ").toUtf8());
         log.write(text.toUtf8());
         log.write("\n");
