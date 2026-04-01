@@ -17,6 +17,12 @@ signals:
     void released();
     void error(const QString &message);
 
+private slots:
+    void onActivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
+                     qulonglong timestamp, const QVariantMap &options);
+    void onDeactivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
+                       qulonglong timestamp, const QVariantMap &options);
+
 private:
     void createSession();
     void bindShortcuts();

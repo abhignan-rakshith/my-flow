@@ -49,11 +49,7 @@ void GlobalHotkey::createSession()
     // The reply is a request path; we need to listen for the Response signal
     QString requestPath = reply.value().path();
 
-    // Connect to the Response signal on the request object
-    QDBusConnection::sessionBus().connect(
-        PORTAL_SERVICE, requestPath,
-        "org.freedesktop.portal.Request", "Response",
-        this, SLOT(/* handled inline below */));
+    // The response will come asynchronously but we proceed synchronously
 
     // For simplicity, use a synchronous approach: wait briefly and attempt bind
     // The session path follows a predictable pattern
@@ -113,27 +109,31 @@ void GlobalHotkey::bindShortcuts()
 
 void GlobalHotkey::connectSignals()
 {
-    // Connect to Activated signal
     QDBusConnection::sessionBus().connect(
         PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE,
         "Activated",
-        this, [this](const QDBusObjectPath &sessionPath, const QString &shortcutId,
-                      qulonglong timestamp, const QVariantMap &options) {
-            Q_UNUSED(sessionPath); Q_UNUSED(timestamp); Q_UNUSED(options);
-            if (shortcutId == "record-toggle") {
-                emit pressed();
-            }
-        });
+        this, SLOT(onActivated(QDBusObjectPath,QString,qulonglong,QVariantMap)));
 
-    // Connect to Deactivated signal
     QDBusConnection::sessionBus().connect(
         PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE,
         "Deactivated",
-        this, [this](const QDBusObjectPath &sessionPath, const QString &shortcutId,
-                      qulonglong timestamp, const QVariantMap &options) {
-            Q_UNUSED(sessionPath); Q_UNUSED(timestamp); Q_UNUSED(options);
-            if (shortcutId == "record-toggle") {
-                emit released();
-            }
-        });
+        this, SLOT(onDeactivated(QDBusObjectPath,QString,qulonglong,QVariantMap)));
+}
+
+void GlobalHotkey::onActivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
+                                qulonglong timestamp, const QVariantMap &options)
+{
+    Q_UNUSED(sessionPath); Q_UNUSED(timestamp); Q_UNUSED(options);
+    if (shortcutId == "record-toggle") {
+        emit pressed();
+    }
+}
+
+void GlobalHotkey::onDeactivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
+                                  qulonglong timestamp, const QVariantMap &options)
+{
+    Q_UNUSED(sessionPath); Q_UNUSED(timestamp); Q_UNUSED(options);
+    if (shortcutId == "record-toggle") {
+        emit released();
+    }
 }

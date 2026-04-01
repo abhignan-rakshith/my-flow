@@ -1,5 +1,6 @@
 #include "AudioEncoder.h"
 #include <QDataStream>
+#include <QIODevice>
 
 QByteArray AudioEncoder::toWav(const QByteArray &pcm, int sampleRate, int bitsPerSample, int channels)
 {
