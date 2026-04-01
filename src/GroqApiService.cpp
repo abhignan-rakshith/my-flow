@@ -34,6 +34,20 @@ void GroqApiService::transcribe(const QByteArray &wavData)
     modelPart.setBody("whisper-large-v3-turbo");
     multiPart->append(modelPart);
 
+    // language hint
+    QHttpPart langPart;
+    langPart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                       QVariant("form-data; name=\"language\""));
+    langPart.setBody("en");
+    multiPart->append(langPart);
+
+    // prompt to guide transcription style
+    QHttpPart promptPart;
+    promptPart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                         QVariant("form-data; name=\"prompt\""));
+    promptPart.setBody("Use proper punctuation and capitalization.");
+    multiPart->append(promptPart);
+
     QNetworkRequest request(QUrl("https://api.groq.com/openai/v1/audio/transcriptions"));
     request.setRawHeader("Authorization", ("Bearer " + m_apiKey).toUtf8());
     request.setTransferTimeout(30000);
