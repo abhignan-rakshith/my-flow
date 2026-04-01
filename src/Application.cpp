@@ -3,6 +3,8 @@
 #include "GroqApiService.h"
 #include "SettingsDialog.h"
 #include <QApplication>
+#include <QFile>
+#include <QDateTime>
 
 Application::Application(QObject *parent)
     : QObject(parent)
@@ -73,11 +75,28 @@ void Application::onRecordingFinished(const QByteArray &pcmData)
     }
 
     QByteArray wavData = AudioEncoder::toWav(pcmData);
+
+    // Save recording
+    QFile wav("/tmp/wispr-flow-last.wav");
+    if (wav.open(QIODevice::WriteOnly)) {
+        wav.write(wavData);
+        wav.close();
+    }
+
     m_transcriber->transcribe(wavData);
 }
 
 void Application::onTranscriptionReady(const QString &text)
 {
+    // Append transcript to log
+    QFile log("/tmp/wispr-flow-transcripts.log");
+    if (log.open(QIODevice::Append | QIODevice::Text)) {
+        log.write(QDateTime::currentDateTime().toString("[yyyy-MM-dd hh:mm:ss] ").toUtf8());
+        log.write(text.toUtf8());
+        log.write("\n");
+        log.close();
+    }
+
     m_injector.type(text);
     m_tray.setState(TrayIcon::State::Idle);
 }
