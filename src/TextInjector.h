@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QTimer>
 
 class TextInjector : public QObject {
     Q_OBJECT

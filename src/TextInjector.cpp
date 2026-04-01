@@ -1,14 +1,13 @@
 #include "TextInjector.h"
 #include <QProcess>
 #include <QStandardPaths>
-#include <QDebug>
 
 TextInjector::TextInjector(QObject *parent)
     : QObject(parent)
 {
     m_available = !QStandardPaths::findExecutable("ydotool").isEmpty();
     if (!m_available) {
-        qWarning() << "ydotool not found in PATH";
+        qWarning("ydotool not found in PATH");
     }
 }
 
@@ -26,7 +25,7 @@ void TextInjector::type(const QString &text)
 
     auto *proc = new QProcess(this);
     proc->setProgram("ydotool");
-    proc->setArguments({"type", "--clearmodifiers", "--", text});
+    proc->setArguments({"type", "--key-delay", "0", "--clearmodifiers", "--", text});
 
     connect(proc, &QProcess::finished, this, [this, proc](int exitCode, QProcess::ExitStatus status) {
         proc->deleteLater();
