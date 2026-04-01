@@ -7,6 +7,11 @@
 #include <QDir>
 #include <QDateTime>
 #include <QStandardPaths>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 
 Application::Application(QObject *parent)
     : QObject(parent)
@@ -93,7 +98,7 @@ void Application::onRecordingFinished(const QByteArray &pcmData)
 
 void Application::onTranscriptionReady(const QString &text)
 {
-    // Append transcript to log in app data dir
+    // Append raw transcript to log
     QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QFile log(dataDir + "/transcripts.log");
     if (log.open(QIODevice::Append | QIODevice::Text)) {
@@ -104,8 +109,65 @@ void Application::onTranscriptionReady(const QString &text)
         log.close();
     }
 
-    m_injector.type(text);
-    m_tray.setState(TrayIcon::State::Idle);
+    // Post-process with LLM for cleanup
+    postProcess(text);
+}
+
+void Application::postProcess(const QString &rawText)
+{
+    QJsonObject msg;
+    msg["role"] = "user";
+    msg["content"] = rawText;
+
+    QJsonObject systemMsg;
+    systemMsg["role"] = "system";
+    systemMsg["content"] = "You are a dictation assistant. Clean up the following speech-to-text transcription. "
+                           "Fix grammar, punctuation, and capitalization. Remove filler words (um, uh, like). "
+                           "Do NOT change the meaning or add new content. Output ONLY the cleaned text, nothing else.";
+
+    QJsonObject body;
+    body["model"] = "llama-3.1-8b-instant";
+    body["messages"] = QJsonArray{systemMsg, msg};
+    body["temperature"] = 0.1;
+    body["max_tokens"] = 2048;
+
+    QNetworkRequest request(QUrl("https://api.groq.com/openai/v1/chat/completions"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setRawHeader("Authorization", ("Bearer " + m_settings.apiKey()).toUtf8());
+    request.setTransferTimeout(15000);
+
+    auto *reply = m_nam.post(request, QJsonDocument(body).toJson());
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, rawText]() {
+        reply->deleteLater();
+
+        // If post-processing fails, fall back to raw text
+        if (reply->error() != QNetworkReply::NoError) {
+            qWarning() << "LLM post-processing failed, using raw text:" << reply->errorString();
+            m_injector.type(rawText);
+            m_tray.setState(TrayIcon::State::Idle);
+            return;
+        }
+
+        QJsonParseError parseError;
+        auto json = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        if (parseError.error != QJsonParseError::NoError) {
+            m_injector.type(rawText);
+            m_tray.setState(TrayIcon::State::Idle);
+            return;
+        }
+
+        QString cleaned = json.object()["choices"].toArray()
+                              .at(0).toObject()["message"].toObject()
+                              ["content"].toString().trimmed();
+
+        if (cleaned.isEmpty()) {
+            cleaned = rawText;
+        }
+
+        m_injector.type(cleaned);
+        m_tray.setState(TrayIcon::State::Idle);
+    });
 }
 
 void Application::onTranscriptionError(const QString &error)

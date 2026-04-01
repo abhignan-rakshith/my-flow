@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QNetworkAccessManager>
 #include <memory>
 #include "Settings.h"
 #include "AudioCapture.h"
@@ -28,6 +29,9 @@ private slots:
 private:
     void createTranscriptionService();
     void applyAudioDevice();
+    void postProcess(const QString &rawText);
+
+    QNetworkAccessManager m_nam;
 
     Settings m_settings;
     AudioCapture m_capture;
