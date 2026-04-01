@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Wispr Flow
+Comment=Push-to-talk voice dictation
+Exec=wispr-flow
+Icon=audio-input-microphone
+Categories=Utility;Audio;
+Keywords=voice;dictation;transcription;whisper;
+StartupNotify=false
+Terminal=false
