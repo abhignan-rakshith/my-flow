@@ -25,5 +25,6 @@ private:
 
     QSystemTrayIcon m_tray;
     QMenu m_menu;
+    QAction *m_recordAction = nullptr;
     State m_state = State::Idle;
 };

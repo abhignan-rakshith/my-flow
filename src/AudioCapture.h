@@ -2,9 +2,10 @@
 
 #include <QObject>
 #include <QByteArray>
-#include <QBuffer>
 #include <QAudioSource>
 #include <QMediaDevices>
+#include <QTimer>
+#include <QIODevice>
 #include <memory>
 
 class AudioCapture : public QObject {
@@ -13,6 +14,7 @@ public:
     explicit AudioCapture(QObject *parent = nullptr);
 
     bool isRecording() const;
+    void setDevice(const QByteArray &deviceId);
 
 public slots:
     void start();
@@ -22,9 +24,14 @@ signals:
     void recordingFinished(const QByteArray &rawPcm);
     void error(const QString &message);
 
+private slots:
+    void onReadyRead();
+    void onStateChanged(QAudio::State state);
+
 private:
     std::unique_ptr<QAudioSource> m_source;
-    QBuffer m_buffer;
+    QIODevice *m_ioDevice = nullptr;
     QByteArray m_data;
+    QByteArray m_deviceId;
     bool m_recording = false;
 };

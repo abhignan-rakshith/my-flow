@@ -28,7 +28,7 @@ void Settings::setApiKey(const QString &key)
 
 QString Settings::hotkey() const
 {
-    return m_settings.value("hotkey/shortcut", "<Super>d").toString();
+    return m_settings.value("hotkey/shortcut", "<Control><Alt>d").toString();
 }
 
 void Settings::setHotkey(const QString &shortcut)

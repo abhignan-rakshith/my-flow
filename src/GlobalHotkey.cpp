@@ -5,6 +5,7 @@
 #include <QDBusReply>
 #include <QDBusArgument>
 #include <QDBusVariant>
+#include <QDBusMetaType>
 #include <QVariantMap>
 #include <QDebug>
 
@@ -12,10 +13,37 @@ static const QString PORTAL_SERVICE = "org.freedesktop.portal.Desktop";
 static const QString PORTAL_PATH = "/org/freedesktop/portal/desktop";
 static const QString SHORTCUTS_IFACE = "org.freedesktop.portal.GlobalShortcuts";
 
+// Custom type for shortcut: (sa{sv})
+struct PortalShortcut {
+    QString id;
+    QVariantMap properties;
+};
+Q_DECLARE_METATYPE(PortalShortcut)
+Q_DECLARE_METATYPE(QList<PortalShortcut>)
+
+QDBusArgument &operator<<(QDBusArgument &arg, const PortalShortcut &s)
+{
+    arg.beginStructure();
+    arg << s.id << s.properties;
+    arg.endStructure();
+    return arg;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &arg, PortalShortcut &s)
+{
+    arg.beginStructure();
+    arg >> s.id >> s.properties;
+    arg.endStructure();
+    return arg;
+}
+
 GlobalHotkey::GlobalHotkey(const QString &preferredShortcut, QObject *parent)
     : QObject(parent)
     , m_shortcut(preferredShortcut)
 {
+    qDBusRegisterMetaType<PortalShortcut>();
+    qDBusRegisterMetaType<QList<PortalShortcut>>();
+
     createSession();
 }
 
@@ -26,72 +54,47 @@ bool GlobalHotkey::isAvailable() const
 
 void GlobalHotkey::createSession()
 {
-    QDBusInterface portal(PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE,
-                          QDBusConnection::sessionBus());
-
-    if (!portal.isValid()) {
-        qWarning() << "GlobalShortcuts portal not available";
-        emit error("XDG GlobalShortcuts portal not available");
-        return;
-    }
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE, "CreateSession");
 
     QVariantMap options;
-    options["handle_token"] = "wispr_flow_session";
-    options["session_handle_token"] = "wispr_flow_session";
+    options["handle_token"] = QString("wispr_flow_session");
+    options["session_handle_token"] = QString("wispr_flow_session");
+    msg << options;
 
-    QDBusReply<QDBusObjectPath> reply = portal.call("CreateSession", options);
-    if (!reply.isValid()) {
-        qWarning() << "CreateSession failed:" << reply.error().message();
-        emit error("Failed to create portal session: " + reply.error().message());
+    QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        qWarning() << "CreateSession failed:" << reply.errorMessage();
+        emit error("Failed to create portal session: " + reply.errorMessage());
         return;
     }
 
-    // The reply is a request path; we need to listen for the Response signal
-    QString requestPath = reply.value().path();
-
-    // The response will come asynchronously but we proceed synchronously
-
-    // For simplicity, use a synchronous approach: wait briefly and attempt bind
-    // The session path follows a predictable pattern
+    // Construct the predictable session path
+    QString busName = QDBusConnection::sessionBus().baseService().mid(1).replace('.', '_');
     m_sessionPath = QDBusObjectPath(
-        QString("/org/freedesktop/portal/desktop/session/%1/wispr_flow_session")
-            .arg(QDBusConnection::sessionBus().baseService().mid(1).replace('.', '_')));
+        QString("/org/freedesktop/portal/desktop/session/%1/wispr_flow_session").arg(busName));
 
+    qDebug() << "Session path:" << m_sessionPath.path();
     bindShortcuts();
 }
 
 void GlobalHotkey::bindShortcuts()
 {
-    QDBusInterface portal(PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE,
-                          QDBusConnection::sessionBus());
+    PortalShortcut shortcut;
+    shortcut.id = "record-toggle";
+    shortcut.properties["description"] = QString("Toggle voice recording");
+    shortcut.properties["preferred_trigger"] = m_shortcut;
 
-    // Build shortcuts list: array of (id, properties) structs
-    QDBusArgument shortcutsArg;
-    shortcutsArg.beginArray(QMetaType(QMetaType::fromName("(sa{sv})").id()
-                                      ? QMetaType::fromName("(sa{sv})").id()
-                                      : qMetaTypeId<QVariant>()));
-    shortcutsArg.beginStructure();
-    shortcutsArg << QString("record-toggle");
-    shortcutsArg.beginMap(QMetaType(QMetaType::QString), QMetaType(QMetaType::fromType<QDBusVariant>()));
-    shortcutsArg.beginMapEntry();
-    shortcutsArg << QString("description");
-    shortcutsArg << QDBusVariant("Toggle voice recording");
-    shortcutsArg.endMapEntry();
-    shortcutsArg.beginMapEntry();
-    shortcutsArg << QString("preferred_trigger");
-    shortcutsArg << QDBusVariant(m_shortcut);
-    shortcutsArg.endMapEntry();
-    shortcutsArg.endMap();
-    shortcutsArg.endStructure();
-    shortcutsArg.endArray();
+    QList<PortalShortcut> shortcuts;
+    shortcuts << shortcut;
 
     QVariantMap options;
-    options["handle_token"] = "wispr_flow_bind";
+    options["handle_token"] = QString("wispr_flow_bind");
 
     QDBusMessage msg = QDBusMessage::createMethodCall(
         PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE, "BindShortcuts");
     msg << QVariant::fromValue(m_sessionPath);
-    msg << QVariant::fromValue(shortcutsArg);
+    msg << QVariant::fromValue(shortcuts);
     msg << QString();  // parent_window
     msg << options;
 

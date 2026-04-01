@@ -20,6 +20,11 @@ TrayIcon::TrayIcon(QObject *parent)
 
 void TrayIcon::buildMenu()
 {
+    m_recordAction = m_menu.addAction("Start Recording");
+    connect(m_recordAction, &QAction::triggered, this, &TrayIcon::toggleRecording);
+
+    m_menu.addSeparator();
+
     auto *settingsAction = m_menu.addAction("Settings...");
     connect(settingsAction, &QAction::triggered, this, &TrayIcon::settingsRequested);
 
@@ -39,16 +44,19 @@ void TrayIcon::setState(State state)
         m_tray.setIcon(QIcon::fromTheme("audio-input-microphone",
                        QIcon(":/icons/mic-off.svg")));
         m_tray.setToolTip("Wispr Flow - Ready");
+        if (m_recordAction) m_recordAction->setText("Start Recording");
         break;
     case State::Recording:
         m_tray.setIcon(QIcon::fromTheme("media-record",
                        QIcon(":/icons/mic-on.svg")));
         m_tray.setToolTip("Wispr Flow - Recording...");
+        if (m_recordAction) m_recordAction->setText("Stop Recording");
         break;
     case State::Transcribing:
         m_tray.setIcon(QIcon::fromTheme("system-run",
                        QIcon(":/icons/mic-on.svg")));
         m_tray.setToolTip("Wispr Flow - Transcribing...");
+        if (m_recordAction) m_recordAction->setText("Transcribing...");
         break;
     }
 }

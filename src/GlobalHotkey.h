@@ -7,7 +7,7 @@
 class GlobalHotkey : public QObject {
     Q_OBJECT
 public:
-    explicit GlobalHotkey(const QString &preferredShortcut = "<Super>d",
+    explicit GlobalHotkey(const QString &preferredShortcut = "<Control><Alt>d",
                           QObject *parent = nullptr);
 
     bool isAvailable() const;

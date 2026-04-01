@@ -27,6 +27,8 @@ private slots:
 
 private:
     void createTranscriptionService();
+    void applyAudioDevice();
+    bool switchBluetoothProfile(bool headset);
 
     Settings m_settings;
     AudioCapture m_capture;
