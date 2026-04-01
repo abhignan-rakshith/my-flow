@@ -1,0 +1,18 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default",
+      "binaryDir": "${sourceDir}/build",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{HOME}/Qt/6.11.0/gcc_64",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      },
+      "environment": {
+        "PATH": "$env{HOME}/Qt/Tools/CMake/bin:$env{HOME}/Qt/Tools/Ninja:$penv{PATH}"
+      }
+    }
+  ]
+}

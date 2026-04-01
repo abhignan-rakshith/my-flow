@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/mic-on.svg</file>
+        <file>icons/mic-off.svg</file>
+    </qresource>
+</RCC>

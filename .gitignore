@@ -1,0 +1,10 @@
+build/
+CMakeUserPresets.json
+.cache/
+compile_commands.json
+*.o
+*.so
+*.a
+moc_*
+qrc_*
+.qmake.stash
