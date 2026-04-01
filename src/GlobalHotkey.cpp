@@ -1,50 +1,34 @@
 #include "GlobalHotkey.h"
 #include <QDBusConnection>
-#include <QDBusInterface>
 #include <QDBusMessage>
-#include <QDBusReply>
-#include <QDBusArgument>
-#include <QDBusVariant>
-#include <QDBusMetaType>
-#include <QVariantMap>
+#include <QProcess>
 #include <QDebug>
 
-static const QString PORTAL_SERVICE = "org.freedesktop.portal.Desktop";
-static const QString PORTAL_PATH = "/org/freedesktop/portal/desktop";
-static const QString SHORTCUTS_IFACE = "org.freedesktop.portal.GlobalShortcuts";
-
-// Custom type for shortcut: (sa{sv})
-struct PortalShortcut {
-    QString id;
-    QVariantMap properties;
-};
-Q_DECLARE_METATYPE(PortalShortcut)
-Q_DECLARE_METATYPE(QList<PortalShortcut>)
-
-QDBusArgument &operator<<(QDBusArgument &arg, const PortalShortcut &s)
-{
-    arg.beginStructure();
-    arg << s.id << s.properties;
-    arg.endStructure();
-    return arg;
-}
-
-const QDBusArgument &operator>>(const QDBusArgument &arg, PortalShortcut &s)
-{
-    arg.beginStructure();
-    arg >> s.id >> s.properties;
-    arg.endStructure();
-    return arg;
-}
+const QString GlobalHotkey::DBUS_SERVICE = "com.wispr.Flow";
+const QString GlobalHotkey::DBUS_PATH = "/com/wispr/Flow";
+const QString GlobalHotkey::KEYBINDING_PATH =
+    "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/wispr-flow/";
 
 GlobalHotkey::GlobalHotkey(const QString &preferredShortcut, QObject *parent)
     : QObject(parent)
     , m_shortcut(preferredShortcut)
 {
-    qDBusRegisterMetaType<PortalShortcut>();
-    qDBusRegisterMetaType<QList<PortalShortcut>>();
+    if (!setupDBusService()) {
+        emit error("Failed to register DBus service");
+        return;
+    }
 
-    createSession();
+    if (!registerKeybinding()) {
+        emit error("Failed to register GNOME keybinding");
+        return;
+    }
+
+    m_available = true;
+}
+
+GlobalHotkey::~GlobalHotkey()
+{
+    removeKeybinding();
 }
 
 bool GlobalHotkey::isAvailable() const
@@ -52,91 +36,93 @@ bool GlobalHotkey::isAvailable() const
     return m_available;
 }
 
-void GlobalHotkey::createSession()
+bool GlobalHotkey::setupDBusService()
 {
-    QDBusMessage msg = QDBusMessage::createMethodCall(
-        PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE, "CreateSession");
+    auto bus = QDBusConnection::sessionBus();
 
-    QVariantMap options;
-    options["handle_token"] = QString("wispr_flow_session");
-    options["session_handle_token"] = QString("wispr_flow_session");
-    msg << options;
-
-    QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
-    if (reply.type() == QDBusMessage::ErrorMessage) {
-        qWarning() << "CreateSession failed:" << reply.errorMessage();
-        emit error("Failed to create portal session: " + reply.errorMessage());
-        return;
+    // Register our service name
+    if (!bus.registerService(DBUS_SERVICE)) {
+        qWarning() << "Failed to register DBus service" << DBUS_SERVICE;
+        return false;
     }
 
-    // Construct the predictable session path
-    QString busName = QDBusConnection::sessionBus().baseService().mid(1).replace('.', '_');
-    m_sessionPath = QDBusObjectPath(
-        QString("/org/freedesktop/portal/desktop/session/%1/wispr_flow_session").arg(busName));
-
-    qDebug() << "Session path:" << m_sessionPath.path();
-    bindShortcuts();
-}
-
-void GlobalHotkey::bindShortcuts()
-{
-    PortalShortcut shortcut;
-    shortcut.id = "record-toggle";
-    shortcut.properties["description"] = QString("Toggle voice recording");
-    shortcut.properties["preferred_trigger"] = m_shortcut;
-
-    QList<PortalShortcut> shortcuts;
-    shortcuts << shortcut;
-
-    QVariantMap options;
-    options["handle_token"] = QString("wispr_flow_bind");
-
-    QDBusMessage msg = QDBusMessage::createMethodCall(
-        PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE, "BindShortcuts");
-    msg << QVariant::fromValue(m_sessionPath);
-    msg << QVariant::fromValue(shortcuts);
-    msg << QString();  // parent_window
-    msg << options;
-
-    QDBusMessage reply = QDBusConnection::sessionBus().call(msg);
-    if (reply.type() == QDBusMessage::ErrorMessage) {
-        qWarning() << "BindShortcuts failed:" << reply.errorMessage();
-        emit error("Failed to bind shortcuts: " + reply.errorMessage());
-        return;
+    // Register object and expose slots and scriptable methods
+    if (!bus.registerObject(DBUS_PATH, this,
+                            QDBusConnection::ExportScriptableSlots)) {
+        qWarning() << "Failed to register DBus object";
+        return false;
     }
 
-    m_available = true;
-    connectSignals();
-    qDebug() << "Global hotkey bound:" << m_shortcut;
+    return true;
 }
 
-void GlobalHotkey::connectSignals()
+void GlobalHotkey::onToggle()
 {
-    QDBusConnection::sessionBus().connect(
-        PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE,
-        "Activated",
-        this, SLOT(onActivated(QDBusObjectPath,QString,qulonglong,QVariantMap)));
-
-    QDBusConnection::sessionBus().connect(
-        PORTAL_SERVICE, PORTAL_PATH, SHORTCUTS_IFACE,
-        "Deactivated",
-        this, SLOT(onDeactivated(QDBusObjectPath,QString,qulonglong,QVariantMap)));
+    qDebug() << "[HOTKEY] Toggle triggered via DBus";
+    emit pressed();
 }
 
-void GlobalHotkey::onActivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
-                                qulonglong timestamp, const QVariantMap &options)
+bool GlobalHotkey::registerKeybinding()
 {
-    Q_UNUSED(sessionPath); Q_UNUSED(timestamp); Q_UNUSED(options);
-    if (shortcutId == "record-toggle") {
-        emit pressed();
+    // Get current custom keybindings list
+    QProcess get;
+    get.start("gsettings", {"get", "org.gnome.settings-daemon.plugins.media-keys",
+                            "custom-keybindings"});
+    get.waitForFinished(2000);
+    QString current = get.readAllStandardOutput().trimmed();
+
+    // Add our keybinding path if not already present
+    if (!current.contains(KEYBINDING_PATH)) {
+        QString newList;
+        if (current == "@as []" || current.isEmpty()) {
+            newList = "['" + KEYBINDING_PATH + "']";
+        } else {
+            // Insert before closing bracket
+            newList = current;
+            newList.chop(1); // remove ]
+            newList += ", '" + KEYBINDING_PATH + "']";
+        }
+        QProcess::execute("gsettings", {"set",
+            "org.gnome.settings-daemon.plugins.media-keys",
+            "custom-keybindings", newList});
     }
+
+    // Set the keybinding properties
+    QString schema = "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding";
+    QString path = KEYBINDING_PATH;
+
+    QProcess::execute("gsettings", {"set", schema + ":" + path,
+                                    "name", "Wispr Flow Toggle"});
+    QProcess::execute("gsettings", {"set", schema + ":" + path,
+                                    "command",
+                                    "dbus-send --session --type=method_call "
+                                    "--dest=com.wispr.Flow /com/wispr/Flow "
+                                    "local.wispr_flow.GlobalHotkey.onToggle"});
+    QProcess::execute("gsettings", {"set", schema + ":" + path,
+                                    "binding", m_shortcut});
+
+    qDebug() << "Registered GNOME keybinding:" << m_shortcut;
+    return true;
 }
 
-void GlobalHotkey::onDeactivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
-                                  qulonglong timestamp, const QVariantMap &options)
+void GlobalHotkey::removeKeybinding()
 {
-    Q_UNUSED(sessionPath); Q_UNUSED(timestamp); Q_UNUSED(options);
-    if (shortcutId == "record-toggle") {
-        emit released();
+    // Remove our path from the custom keybindings list
+    QProcess get;
+    get.start("gsettings", {"get", "org.gnome.settings-daemon.plugins.media-keys",
+                            "custom-keybindings"});
+    get.waitForFinished(2000);
+    QString current = get.readAllStandardOutput().trimmed();
+
+    if (current.contains(KEYBINDING_PATH)) {
+        current.remove("'" + KEYBINDING_PATH + "'");
+        current.remove(", ,");  // clean up double commas
+        current.replace("[, ", "[");
+        current.replace(", ]", "]");
+        if (current == "[]") current = "@as []";
+
+        QProcess::execute("gsettings", {"set",
+            "org.gnome.settings-daemon.plugins.media-keys",
+            "custom-keybindings", current});
     }
 }

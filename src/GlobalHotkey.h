@@ -1,14 +1,17 @@
 #pragma once
 
 #include <QObject>
-#include <QDBusObjectPath>
 #include <QString>
+#include <QDBusObjectPath>
+
+class QDBusServiceWatcher;
 
 class GlobalHotkey : public QObject {
     Q_OBJECT
 public:
     explicit GlobalHotkey(const QString &preferredShortcut = "<Control><Alt>d",
                           QObject *parent = nullptr);
+    ~GlobalHotkey();
 
     bool isAvailable() const;
 
@@ -17,18 +20,18 @@ signals:
     void released();
     void error(const QString &message);
 
-private slots:
-    void onActivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
-                     qulonglong timestamp, const QVariantMap &options);
-    void onDeactivated(const QDBusObjectPath &sessionPath, const QString &shortcutId,
-                       qulonglong timestamp, const QVariantMap &options);
+public slots:
+    Q_SCRIPTABLE void onToggle();
 
 private:
-    void createSession();
-    void bindShortcuts();
-    void connectSignals();
+    bool setupDBusService();
+    bool registerKeybinding();
+    void removeKeybinding();
 
     QString m_shortcut;
-    QDBusObjectPath m_sessionPath;
     bool m_available = false;
+
+    static const QString DBUS_SERVICE;
+    static const QString DBUS_PATH;
+    static const QString KEYBINDING_PATH;
 };
