@@ -4,9 +4,10 @@
 #include <QGuiApplication>
 
 OverlayWidget::OverlayWidget(QWidget *parent)
-    : QWidget(parent, Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool)
+    : QWidget(parent, Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus)
 {
     setAttribute(Qt::WA_TranslucentBackground);
+    setAttribute(Qt::WA_ShowWithoutActivating);
     setFixedSize(180, 40);
 
     auto *layout = new QHBoxLayout(this);
@@ -37,7 +38,6 @@ void OverlayWidget::showRecording()
     }
 
     QWidget::show();
-    raise();
 }
 
 void OverlayWidget::hide()

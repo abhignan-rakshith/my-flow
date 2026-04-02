@@ -22,13 +22,8 @@ Application::Application(QObject *parent)
     // Set up global hotkey
     m_hotkey = std::make_unique<GlobalHotkey>(m_settings.hotkey());
     if (m_hotkey->isAvailable()) {
-        connect(m_hotkey.get(), &GlobalHotkey::pressed, this, [this]() {
-            if (m_capture.isRecording()) {
-                onStopRecording();
-            } else {
-                onStartRecording();
-            }
-        });
+        connect(m_hotkey.get(), &GlobalHotkey::pressed, this, &Application::onStartRecording);
+        connect(m_hotkey.get(), &GlobalHotkey::released, this, &Application::onStopRecording);
     }
 
     // Tray icon signals

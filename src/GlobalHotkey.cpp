@@ -197,9 +197,14 @@ static GlobalHotkey *s_instance = nullptr;
 
 static OSStatus hotkeyHandler(EventHandlerCallRef /*nextHandler*/, EventRef event, void * /*userData*/)
 {
-    if (s_instance) {
-        qDebug() << "[HOTKEY] Toggle triggered via macOS hotkey";
+    if (!s_instance)
+        return noErr;
+
+    UInt32 kind = GetEventKind(event);
+    if (kind == kEventHotKeyPressed) {
         QMetaObject::invokeMethod(s_instance, "pressed", Qt::QueuedConnection);
+    } else if (kind == kEventHotKeyReleased) {
+        QMetaObject::invokeMethod(s_instance, "released", Qt::QueuedConnection);
     }
     return noErr;
 }
@@ -225,17 +230,18 @@ bool GlobalHotkey::isAvailable() const
 
 void GlobalHotkey::registerMacHotkey()
 {
-    // Default: Ctrl+Option+D (macOS equivalent of Ctrl+Alt+D)
-    // kVK_ANSI_D = 0x02, cmdKey=256, optionKey=2048, controlKey=4096
-    UInt32 modifiers = optionKey | controlKey;  // Ctrl+Option
-    UInt32 keyCode = kVK_ANSI_D;
+    // Ctrl+Option+Space push-to-talk
+    UInt32 modifiers = optionKey | controlKey;
+    UInt32 keyCode = kVK_Space;
 
-    EventTypeSpec eventType;
-    eventType.eventClass = kEventClassKeyboard;
-    eventType.eventKind = kEventHotKeyPressed;
+    EventTypeSpec eventTypes[2];
+    eventTypes[0].eventClass = kEventClassKeyboard;
+    eventTypes[0].eventKind = kEventHotKeyPressed;
+    eventTypes[1].eventClass = kEventClassKeyboard;
+    eventTypes[1].eventKind = kEventHotKeyReleased;
 
     EventHandlerRef handlerRef;
-    OSStatus status = InstallApplicationEventHandler(&hotkeyHandler, 1, &eventType, nullptr, &handlerRef);
+    OSStatus status = InstallApplicationEventHandler(&hotkeyHandler, 2, eventTypes, nullptr, &handlerRef);
     if (status != noErr) {
         qWarning() << "Failed to install macOS hotkey handler";
         emit error("Failed to install hotkey handler");
@@ -258,7 +264,7 @@ void GlobalHotkey::registerMacHotkey()
 
     m_hotkeyId = 1;
     m_available = true;
-    qDebug() << "Registered macOS hotkey: Ctrl+Option+D";
+    qDebug() << "Registered macOS hotkey: Ctrl+Option+Space (push-to-talk)";
 }
 
 void GlobalHotkey::unregisterMacHotkey()

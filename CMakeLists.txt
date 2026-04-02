@@ -63,4 +63,11 @@ if(APPLE)
         "-framework Carbon"
         "-framework ApplicationServices"
     )
+
+    # Sign with stable identity so Accessibility permission survives rebuilds
+    add_custom_command(TARGET wispr-flow POST_BUILD
+        COMMAND codesign --force --sign F9D8560F07810652449F775F1408D25B341248CF --deep
+                "$<TARGET_BUNDLE_DIR:wispr-flow>"
+        COMMENT "Signing wispr-flow.app with Apple Development identity"
+    )
 endif()
