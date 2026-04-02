@@ -83,12 +83,12 @@ void Application::onRecordingFinished(const QByteArray &pcmData)
 
     QByteArray wavData = AudioEncoder::toWav(pcmData);
 
-    // Save recording to app data dir with restrictive permissions
-    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(dataDir);
-    QFile wav(dataDir + "/last-recording.wav");
+    // Save recording to project tmp/ dir for debugging
+    QString tmpDir = QCoreApplication::applicationDirPath() + "/../tmp";
+    QDir().mkpath(tmpDir);
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
+    QFile wav(tmpDir + "/" + timestamp + ".wav");
     if (wav.open(QIODevice::WriteOnly)) {
-        wav.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
         wav.write(wavData);
         wav.close();
     }
@@ -98,11 +98,11 @@ void Application::onRecordingFinished(const QByteArray &pcmData)
 
 void Application::onTranscriptionReady(const QString &text)
 {
-    // Append raw transcript to log
-    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QFile log(dataDir + "/transcripts.log");
+    // Append raw transcript to project tmp/ dir for debugging
+    QString tmpDir = QCoreApplication::applicationDirPath() + "/../tmp";
+    QDir().mkpath(tmpDir);
+    QFile log(tmpDir + "/transcripts.log");
     if (log.open(QIODevice::Append | QIODevice::Text)) {
-        log.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
         log.write(QDateTime::currentDateTime().toString("[yyyy-MM-dd hh:mm:ss] ").toUtf8());
         log.write(text.toUtf8());
         log.write("\n");
@@ -123,6 +123,7 @@ void Application::postProcess(const QString &rawText)
     systemMsg["role"] = "system";
     systemMsg["content"] = "You are a dictation assistant. Clean up the following speech-to-text transcription. "
                            "Fix grammar, punctuation, and capitalization. Remove filler words (um, uh, like). "
+                           "When the speaker corrects themselves (e.g. 'wrist, fist I mean'), use the CORRECTION, not the original word. "
                            "Do NOT change the meaning or add new content. Output ONLY the cleaned text, nothing else.";
 
     QJsonObject body;

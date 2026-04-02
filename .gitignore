@@ -8,3 +8,4 @@ compile_commands.json
 moc_*
 qrc_*
 .qmake.stash
+flow_key.txt
