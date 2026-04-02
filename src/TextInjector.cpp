@@ -103,6 +103,7 @@ void TextInjector::type(const QString &text)
 #ifdef Q_OS_MACOS
 
 #include <ApplicationServices/ApplicationServices.h>
+#include <QDebug>
 
 TextInjector::TextInjector(QObject *parent)
     : QObject(parent)
@@ -117,6 +118,12 @@ bool TextInjector::isAvailable() const
 
 void TextInjector::type(const QString &text)
 {
+    // Check if we have accessibility permissions
+    if (!AXIsProcessTrusted()) {
+        emit injectionError("Accessibility permission not granted. Enable in System Settings → Privacy → Accessibility.");
+        return;
+    }
+
     // Use CGEventKeyboardSetUnicodeString to type text
     // Process in chunks of 20 chars (CGEvent limit)
     static const int kChunkSize = 20;

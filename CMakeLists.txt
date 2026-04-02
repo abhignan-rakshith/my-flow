@@ -13,7 +13,19 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS ${QT_COMPONENTS})
 
+set(MACOSX_BUNDLE_BUNDLE_NAME "My Flow")
+set(MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION})
+set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION})
+set(MACOSX_BUNDLE_GUI_IDENTIFIER "com.myflow.app")
+
+if(APPLE)
+    set(APP_ICON_MACOS "${CMAKE_SOURCE_DIR}/resources/icons/AppIcon.icns")
+    set_source_files_properties(${APP_ICON_MACOS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    set(MACOSX_BUNDLE_ICON_FILE "AppIcon")
+endif()
+
 qt_add_executable(wispr-flow
+    ${APP_ICON_MACOS}
     src/main.cpp
     src/Application.h src/Application.cpp
     src/Settings.h src/Settings.cpp
@@ -43,6 +55,10 @@ if(LINUX)
 endif()
 
 if(APPLE)
+    set_target_properties(wispr-flow PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/resources/Info.plist.in"
+    )
     target_link_libraries(wispr-flow PRIVATE
         "-framework Carbon"
         "-framework ApplicationServices"

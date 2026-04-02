@@ -10,7 +10,7 @@ SettingsDialog::SettingsDialog(Settings &settings, QWidget *parent)
     : QDialog(parent)
     , m_settings(settings)
 {
-    setWindowTitle("Wispr Flow Settings");
+    setWindowTitle("My Flow Settings");
     setMinimumWidth(400);
 
     auto *layout = new QVBoxLayout(this);

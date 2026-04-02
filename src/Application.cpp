@@ -82,33 +82,11 @@ void Application::onRecordingFinished(const QByteArray &pcmData)
     }
 
     QByteArray wavData = AudioEncoder::toWav(pcmData);
-
-    // Save recording to project tmp/ dir for debugging
-    QString tmpDir = QCoreApplication::applicationDirPath() + "/../tmp";
-    QDir().mkpath(tmpDir);
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
-    QFile wav(tmpDir + "/" + timestamp + ".wav");
-    if (wav.open(QIODevice::WriteOnly)) {
-        wav.write(wavData);
-        wav.close();
-    }
-
     m_transcriber->transcribe(wavData);
 }
 
 void Application::onTranscriptionReady(const QString &text)
 {
-    // Append raw transcript to project tmp/ dir for debugging
-    QString tmpDir = QCoreApplication::applicationDirPath() + "/../tmp";
-    QDir().mkpath(tmpDir);
-    QFile log(tmpDir + "/transcripts.log");
-    if (log.open(QIODevice::Append | QIODevice::Text)) {
-        log.write(QDateTime::currentDateTime().toString("[yyyy-MM-dd hh:mm:ss] ").toUtf8());
-        log.write(text.toUtf8());
-        log.write("\n");
-        log.close();
-    }
-
     // Post-process with LLM for cleanup
     postProcess(text);
 }
@@ -144,7 +122,6 @@ void Application::postProcess(const QString &rawText)
 
         // If post-processing fails, fall back to raw text
         if (reply->error() != QNetworkReply::NoError) {
-            qWarning() << "LLM post-processing failed, using raw text:" << reply->errorString();
             m_injector.type(rawText);
             m_tray.setState(TrayIcon::State::Idle);
             return;
@@ -173,7 +150,7 @@ void Application::postProcess(const QString &rawText)
 
 void Application::onTranscriptionError(const QString &error)
 {
-    qWarning() << "Transcription error:" << error;
+    qWarning() << "TRANSCRIPTION ERROR:" << error;
     m_tray.showError("Transcription failed: " + error);
     m_tray.setState(TrayIcon::State::Idle);
 }
@@ -182,8 +159,11 @@ void Application::onSettingsRequested()
 {
     auto *dialog = new SettingsDialog(m_settings);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowFlags(dialog->windowFlags() | Qt::WindowStaysOnTopHint);
     connect(dialog, &SettingsDialog::settingsChanged, this, &Application::onSettingsChanged);
     dialog->show();
+    dialog->raise();
+    dialog->activateWindow();
 }
 
 void Application::onSettingsChanged()

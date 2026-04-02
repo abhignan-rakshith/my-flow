@@ -9,3 +9,10 @@ moc_*
 qrc_*
 .qmake.stash
 flow_key.txt
+.DS_Store
+tmp/
+build/
+resources/icons/AppIcon.iconset/
+resources/icons/cleaned_*.png
+resources/icons/mask.png
+test.txt
