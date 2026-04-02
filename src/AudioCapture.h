@@ -8,6 +8,9 @@
 #include <QIODevice>
 #include <memory>
 
+/// Records audio from the selected input device using QAudioSource in pull mode.
+/// On stop, applies a processing pipeline (high-pass filter, noise gate, normalization)
+/// before emitting the raw PCM via recordingFinished().
 class AudioCapture : public QObject {
     Q_OBJECT
 public:

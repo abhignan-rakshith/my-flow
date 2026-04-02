@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include "Settings.h"
 
+/// Modal dialog for configuring backend, API key, and audio input device.
 class SettingsDialog : public QDialog {
     Q_OBJECT
 public:

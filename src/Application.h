@@ -12,6 +12,8 @@
 #include "TrayIcon.h"
 #include "OverlayWidget.h"
 
+/// Central orchestrator — owns all components and wires them via signals/slots.
+/// Flow: hotkey → record → encode → transcribe → LLM cleanup → type into focused window.
 class Application : public QObject {
     Q_OBJECT
 public:

@@ -30,6 +30,8 @@ void TextInjector::type(const QString &text)
 
     auto *proc = new QProcess(this);
     proc->setProgram("ydotool");
+    // --key-delay 0: type as fast as possible (default delay is too slow for dictation)
+    // --clearmodifiers: release any held modifier keys so they don't affect typed text
     proc->setArguments({"type", "--key-delay", "0", "--clearmodifiers", "--", text});
 
     connect(proc, &QProcess::finished, this, [this, proc](int exitCode, QProcess::ExitStatus status) {
@@ -124,8 +126,8 @@ void TextInjector::type(const QString &text)
         return;
     }
 
-    // Use CGEventKeyboardSetUnicodeString to type text
-    // Process in chunks of 20 chars (CGEvent limit)
+    // CGEventKeyboardSetUnicodeString has an undocumented limit of ~20 Unicode
+    // characters per event. Exceeding it silently truncates. Process in chunks.
     static const int kChunkSize = 20;
 
     for (int i = 0; i < text.length(); i += kChunkSize) {

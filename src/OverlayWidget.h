@@ -3,6 +3,7 @@
 #include <QWidget>
 #include <QLabel>
 
+/// Floating semi-transparent "Recording..." indicator shown during capture.
 class OverlayWidget : public QWidget {
     Q_OBJECT
 public:

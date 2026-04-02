@@ -5,6 +5,8 @@
 #include <QMenu>
 #include <QIcon>
 
+/// System tray icon with three visual states (idle/recording/transcribing).
+/// Provides menu actions for toggling recording, opening settings, and quitting.
 class TrayIcon : public QObject {
     Q_OBJECT
 public:

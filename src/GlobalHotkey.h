@@ -15,6 +15,10 @@
 class QTimer;
 #endif
 
+/// Platform-specific global hotkey for push-to-talk.
+/// Linux: GNOME custom keybinding via gsettings + DBus service.
+/// macOS: Carbon RegisterEventHotKey (press/release events).
+/// Windows: RegisterHotKey + native event filter.
 class GlobalHotkey : public QObject
 #ifdef Q_OS_WIN
     , public QAbstractNativeEventFilter

@@ -100,9 +100,10 @@ void Application::postProcess(const QString &rawText)
                            "Do NOT change the meaning or add new content. Output ONLY the cleaned text, nothing else.";
 
     QJsonObject body;
+    // Llama 3.1 8B on Groq — fast and free, good enough for grammar/punctuation cleanup
     body["model"] = "llama-3.1-8b-instant";
     body["messages"] = QJsonArray{systemMsg, msg};
-    body["temperature"] = 0.1;
+    body["temperature"] = 0.1; // Low temperature — we want deterministic cleanup, not creativity
     body["max_tokens"] = 2048;
 
     QNetworkRequest request(QUrl("https://api.groq.com/openai/v1/chat/completions"));

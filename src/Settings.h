@@ -3,6 +3,8 @@
 #include <QSettings>
 #include <QString>
 
+/// Persistent app configuration via QSettings (~/.config/wispr-flow/ on Linux).
+/// Stores backend choice, API key, hotkey shortcut, and audio device.
 class Settings {
 public:
     Settings();

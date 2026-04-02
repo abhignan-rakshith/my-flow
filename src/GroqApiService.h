@@ -3,6 +3,7 @@
 #include "TranscriptionService.h"
 #include <QNetworkAccessManager>
 
+/// Groq Whisper API client — sends WAV as multipart/form-data POST.
 class GroqApiService : public TranscriptionService {
     Q_OBJECT
 public:

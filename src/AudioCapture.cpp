@@ -21,6 +21,8 @@ void AudioCapture::start()
     if (m_recording)
         return;
 
+    // 48kHz/16-bit/mono — high enough quality for Whisper while keeping file size
+    // reasonable. Mono is fine since we only need voice from one source.
     QAudioFormat format;
     format.setSampleRate(48000);
     format.setChannelCount(1);
@@ -51,6 +53,8 @@ void AudioCapture::start()
     connect(m_source.get(), &QAudioSource::stateChanged,
             this, &AudioCapture::onStateChanged);
 
+    // Pull mode: start() returns a QIODevice* we read from on readyRead.
+    // Push mode (start(&QBuffer)) was unreliable — QBuffer didn't grow consistently.
     m_ioDevice = m_source->start();
     if (!m_ioDevice) {
         emit error("Failed to start audio capture");

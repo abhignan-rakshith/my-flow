@@ -4,6 +4,8 @@
 #include <QByteArray>
 #include <QString>
 
+/// Abstract interface for speech-to-text backends (Groq, OpenAI).
+/// Accepts WAV data, emits transcribed text or error asynchronously.
 class TranscriptionService : public QObject {
     Q_OBJECT
 public:
